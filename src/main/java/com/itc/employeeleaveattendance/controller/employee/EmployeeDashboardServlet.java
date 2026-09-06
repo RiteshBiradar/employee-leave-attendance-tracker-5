@@ -1,9 +1,11 @@
 package com.itc.employeeleaveattendance.controller.employee;
 
+import com.itc.employeeleaveattendance.dao.LeaveBalanceDAO;
 import com.itc.employeeleaveattendance.filter.AuthenticationFilter;
 import com.itc.employeeleaveattendance.model.Employee;
 import com.itc.employeeleaveattendance.model.LeaveBalance;
-import com.itc.employeeleaveattendance.service.LeaveService;
+import com.itc.employeeleaveattendance.service.LeaveBalanceService;
+import com.itc.employeeleaveattendance.service.impl.LeaveBalanceServiceImpl;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -12,8 +14,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
-import java.sql.SQLException;
-import java.util.Optional;
 
 /**
  * Serves the employee dashboard page.
@@ -28,7 +28,18 @@ import java.util.Optional;
 @WebServlet("/employee/dashboard")
 public class EmployeeDashboardServlet extends HttpServlet {
 
-    private final LeaveService leaveService = new LeaveService();
+    /**
+     * Wired in {@link #init()} from a DAO registered on the {@code ServletContext}
+     * by the application's context listener.
+     */
+    private LeaveBalanceService leaveBalanceService;
+
+    @Override
+    public void init() throws ServletException {
+        LeaveBalanceDAO leaveBalanceDAO =
+                (LeaveBalanceDAO) getServletContext().getAttribute("leaveBalanceDAO");
+        this.leaveBalanceService = new LeaveBalanceServiceImpl(leaveBalanceDAO);
+    }
 
     @Override
     protected void doGet(HttpServletRequest request,
@@ -43,12 +54,9 @@ public class EmployeeDashboardServlet extends HttpServlet {
         request.setAttribute("employee", employee);
 
         // Fetch and expose leave balance (gracefully handle missing balance row)
-        try {
-            Optional<LeaveBalance> balance = leaveService.getLeaveBalance(employee.getEmpId());
-            balance.ifPresent(lb -> request.setAttribute("leaveBalance", lb));
-        } catch (SQLException e) {
-            getServletContext().log("Error fetching leave balance for emp " + employee.getEmpId(), e);
-            // Dashboard still loads — balance section will show "N/A"
+        LeaveBalance balance = leaveBalanceService.getBalance(employee.getEmpId(), null);
+        if (balance != null) {
+            request.setAttribute("leaveBalance", balance);
         }
 
         request.getRequestDispatcher("/WEB-INF/views/employee/dashboard.jsp")
