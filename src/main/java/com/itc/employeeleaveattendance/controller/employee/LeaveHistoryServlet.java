@@ -28,7 +28,7 @@ import java.util.List;
 @WebServlet("/employee/leave-history")
 public class LeaveHistoryServlet extends HttpServlet {
 
-    private final LeaveService leaveService = new LeaveService();
+    private final LeaveService leaveService =  new LeaveServiceImpl(leaveRequestDAO);
 
     @Override
     protected void doGet(HttpServletRequest request,
