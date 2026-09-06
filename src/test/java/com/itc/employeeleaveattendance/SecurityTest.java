@@ -1,5 +1,7 @@
 package com.itc.employeeleaveattendance;
 
+import com.itc.employeeleaveattendance.constant.LeaveStatus;
+import com.itc.employeeleaveattendance.constant.LeaveType;
 import com.itc.employeeleaveattendance.dao.EmployeeDAO;
 import com.itc.employeeleaveattendance.dao.LeaveBalanceDAO;
 import com.itc.employeeleaveattendance.dao.LeaveRequestDAO;
@@ -9,7 +11,10 @@ import com.itc.employeeleaveattendance.model.Employee;
 import com.itc.employeeleaveattendance.model.LeaveBalance;
 import com.itc.employeeleaveattendance.model.LeaveRequest;
 import com.itc.employeeleaveattendance.service.AuthService;
+import com.itc.employeeleaveattendance.service.LeaveBalanceService;
 import com.itc.employeeleaveattendance.service.LeaveService;
+import com.itc.employeeleaveattendance.service.impl.LeaveBalanceServiceImpl;
+import com.itc.employeeleaveattendance.service.impl.LeaveServiceImpl;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.RequestDispatcher;
@@ -26,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -140,7 +146,7 @@ class SecurityTest {
     }
 
     // ===========================================================================
-    //  2. LeaveService — Data Isolation (LEAVE_REQUEST & LEAVE_BALANCE tables)
+    //  2. LeaveService — Data Isolation (LEAVE_REQUEST table)
     // ===========================================================================
 
     @Nested
@@ -148,58 +154,72 @@ class SecurityTest {
     class LeaveServiceTests {
 
         private LeaveRequestDAO mockLeaveDAO;
-        private LeaveBalanceDAO mockBalanceDAO;
         private LeaveService    leaveService;
 
         @BeforeEach
-        void setUp() throws Exception {
-            mockLeaveDAO   = mock(LeaveRequestDAO.class);
-            mockBalanceDAO = mock(LeaveBalanceDAO.class);
-            var ctor = LeaveService.class.getDeclaredConstructor(
-                    LeaveRequestDAO.class, LeaveBalanceDAO.class);
-            ctor.setAccessible(true);
-            leaveService = (LeaveService) ctor.newInstance(mockLeaveDAO, mockBalanceDAO);
+        void setUp() {
+            mockLeaveDAO = mock(LeaveRequestDAO.class);
+            leaveService = new LeaveServiceImpl(mockLeaveDAO);
         }
 
         @Test
         @DisplayName("TC-06 · getLeaveHistory returns only that employee's records")
-        void leaveHistory_returnsOwnRecordsOnly() throws SQLException {
-            LeaveRequest lr = new LeaveRequest(10, EMP_ID, "CASUAL",
-                    LocalDate.of(2025,1,10), LocalDate.of(2025,1,12),
-                    "APPROVED", "Personal work");
-            when(mockLeaveDAO.findByEmpId(EMP_ID)).thenReturn(List.of(lr));
+        void leaveHistory_returnsOwnRecordsOnly() {
+            LeaveRequest lr = new LeaveRequest(
+                    10L, EMP_ID, LeaveType.CASUAL,
+                    LocalDate.of(2025, 1, 10), LocalDate.of(2025, 1, 12),
+                    2, "Personal work", LeaveStatus.APPROVED, LocalDateTime.now());
+            when(mockLeaveDAO.findByEmployeeId(EMP_ID)).thenReturn(List.of(lr));
 
             List<LeaveRequest> result = leaveService.getLeaveHistory(EMP_ID);
 
             assertEquals(1, result.size());
-            assertEquals(EMP_ID, result.get(0).getEmpId(),
+            assertEquals(EMP_ID, result.get(0).getEmployeeId(),
                     "Returned record must belong to the requesting employee");
         }
 
         @Test
         @DisplayName("TC-07 · Employee cannot trigger a query for another emp_id (IDOR prevention)")
-        void leaveHistory_neverQueriesOtherEmpId() throws SQLException {
-            when(mockLeaveDAO.findByEmpId(EMP_ID)).thenReturn(Collections.emptyList());
+        void leaveHistory_neverQueriesOtherEmpId() {
+            when(mockLeaveDAO.findByEmployeeId(EMP_ID)).thenReturn(Collections.emptyList());
 
             leaveService.getLeaveHistory(EMP_ID);
 
             // DAO must only be called with EMP_ID — never with manager's ID
-            verify(mockLeaveDAO, times(1)).findByEmpId(EMP_ID);
-            verify(mockLeaveDAO, never()).findByEmpId(MGR_ID);
+            verify(mockLeaveDAO, times(1)).findByEmployeeId(EMP_ID);
+            verify(mockLeaveDAO, never()).findByEmployeeId(MGR_ID);
+        }
+    }
+
+    // ===========================================================================
+    //  2b. LeaveBalanceService — Balance Isolation (LEAVE_BALANCE table)
+    // ===========================================================================
+
+    @Nested
+    @DisplayName("2b · LeaveBalanceService — Balance Data Isolation")
+    class LeaveBalanceServiceTests {
+
+        private LeaveBalanceDAO    mockBalanceDAO;
+        private LeaveBalanceService leaveBalanceService;
+
+        @BeforeEach
+        void setUp() {
+            mockBalanceDAO      = mock(LeaveBalanceDAO.class);
+            leaveBalanceService = new LeaveBalanceServiceImpl(mockBalanceDAO);
         }
 
         @Test
-        @DisplayName("TC-08 · getLeaveBalance returns the correct balance for the employee")
-        void leaveBalance_returnedForCorrectEmpId() throws SQLException {
-            LeaveBalance bal = new LeaveBalance(1, EMP_ID, 6.0, 5.0, 10.0);
-            when(mockBalanceDAO.findByEmpId(EMP_ID)).thenReturn(Optional.of(bal));
+        @DisplayName("TC-08 · getBalance returns the correct balance row for the employee")
+        void leaveBalance_returnedForCorrectEmpId() {
+            LeaveBalance bal = new LeaveBalance(1L, EMP_ID, 6.0, 5.0, 10.0);
+            when(mockBalanceDAO.findByEmployeeId(EMP_ID)).thenReturn(bal);
 
-            Optional<LeaveBalance> result = leaveService.getLeaveBalance(EMP_ID);
+            LeaveBalance result = leaveBalanceService.getBalance(EMP_ID, null);
 
-            assertTrue(result.isPresent());
-            assertEquals(6.0,  result.get().getCasualBalance(), 0.001);
-            assertEquals(5.0,  result.get().getSickBalance(),   0.001);
-            assertEquals(10.0, result.get().getEarnedBalance(), 0.001);
+            assertNotNull(result);
+            assertEquals(6.0,  result.getCasualBalance(),  0.001);
+            assertEquals(5.0,  result.getSickBalance(),    0.001);
+            assertEquals(10.0, result.getEarnedBalance(),  0.001);
         }
     }
 

@@ -1,9 +1,11 @@
 package com.itc.employeeleaveattendance.controller.employee;
 
+import com.itc.employeeleaveattendance.dao.LeaveRequestDAO;
 import com.itc.employeeleaveattendance.filter.AuthenticationFilter;
 import com.itc.employeeleaveattendance.model.Employee;
 import com.itc.employeeleaveattendance.model.LeaveRequest;
 import com.itc.employeeleaveattendance.service.LeaveService;
+import com.itc.employeeleaveattendance.service.impl.LeaveServiceImpl;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -12,7 +14,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.List;
 
 /**
@@ -28,7 +29,18 @@ import java.util.List;
 @WebServlet("/employee/leave-history")
 public class LeaveHistoryServlet extends HttpServlet {
 
-    private final LeaveService leaveService =  new LeaveServiceImpl(leaveRequestDAO);
+    /**
+     * Wired in {@link #init()} from a DAO registered on the {@code ServletContext}
+     * by the application's context listener.
+     */
+    private LeaveService leaveService;
+
+    @Override
+    public void init() throws ServletException {
+        LeaveRequestDAO leaveRequestDAO =
+                (LeaveRequestDAO) getServletContext().getAttribute("leaveRequestDAO");
+        this.leaveService = new LeaveServiceImpl(leaveRequestDAO);
+    }
 
     @Override
     protected void doGet(HttpServletRequest request,
@@ -43,21 +55,12 @@ public class LeaveHistoryServlet extends HttpServlet {
         // empId comes from the SESSION — never from request parameters
         int empId = employee.getEmpId();
 
-        try {
-            List<LeaveRequest> leaveHistory = leaveService.getLeaveHistory(empId);
+        List<LeaveRequest> leaveHistory = leaveService.getLeaveHistory(empId);
 
-            request.setAttribute("employee",    employee);
-            request.setAttribute("leaveHistory", leaveHistory);
+        request.setAttribute("employee",    employee);
+        request.setAttribute("leaveHistory", leaveHistory);
 
-            request.getRequestDispatcher("/WEB-INF/views/employee/leave-history.jsp")
-                   .forward(request, response);
-
-        } catch (SQLException e) {
-            getServletContext().log("Error fetching leave history for emp " + empId, e);
-            request.setAttribute("errorMessage",
-                    "Unable to retrieve leave history. Please try again later.");
-            request.getRequestDispatcher("/WEB-INF/views/employee/leave-history.jsp")
-                   .forward(request, response);
-        }
+        request.getRequestDispatcher("/WEB-INF/views/employee/leave-history.jsp")
+               .forward(request, response);
     }
 }

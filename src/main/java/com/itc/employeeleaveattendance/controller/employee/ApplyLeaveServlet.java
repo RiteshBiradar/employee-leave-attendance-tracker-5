@@ -4,6 +4,7 @@ import com.itc.employeeleaveattendance.constant.LeaveType;
 import com.itc.employeeleaveattendance.filter.AuthenticationFilter;
 import com.itc.employeeleaveattendance.model.Employee;
 import com.itc.employeeleaveattendance.model.LeaveRequest;
+import com.itc.employeeleaveattendance.dao.LeaveRequestDAO;
 import com.itc.employeeleaveattendance.service.LeaveService;
 import com.itc.employeeleaveattendance.service.impl.LeaveServiceImpl;
 import jakarta.servlet.ServletException;
@@ -31,7 +32,18 @@ import java.time.LocalDate;
 @WebServlet("/employee/apply-leave")
 public class ApplyLeaveServlet extends HttpServlet {
 
-    private final LeaveService leaveService = new LeaveServiceImpl(leaveRequestDAO);
+    /**
+     * Wired in {@link #init()} from a DAO registered on the {@code ServletContext}
+     * by the application's context listener.
+     */
+    private LeaveService leaveService;
+
+    @Override
+    public void init() throws ServletException {
+        LeaveRequestDAO leaveRequestDAO =
+                (LeaveRequestDAO) getServletContext().getAttribute("leaveRequestDAO");
+        this.leaveService = new LeaveServiceImpl(leaveRequestDAO);
+    }
 
     // -----------------------------------------------------------------------
     // GET — serve the blank apply-leave form
