@@ -1,10 +1,13 @@
 package com.itc.employeeleaveattendance.controller.employee;
 
 import com.itc.employeeleaveattendance.constant.LeaveType;
+import com.itc.employeeleaveattendance.dao.LeaveBalanceDAO;
+import com.itc.employeeleaveattendance.dao.LeaveRequestDAO;
+import com.itc.employeeleaveattendance.exception.InsufficientBalanceException;
+import com.itc.employeeleaveattendance.exception.OverlappingLeaveException;
 import com.itc.employeeleaveattendance.filter.AuthenticationFilter;
 import com.itc.employeeleaveattendance.model.Employee;
 import com.itc.employeeleaveattendance.model.LeaveRequest;
-import com.itc.employeeleaveattendance.dao.LeaveRequestDAO;
 import com.itc.employeeleaveattendance.service.LeaveService;
 import com.itc.employeeleaveattendance.service.impl.LeaveServiceImpl;
 import jakarta.servlet.ServletException;
@@ -22,18 +25,21 @@ import java.time.LocalDate;
  *
  * <p>GET  /employee/apply-leave → forwards to the apply-leave form JSP.
  * <p>POST /employee/apply-leave → reads form parameters, builds a LeaveRequest,
- * delegates to {@link LeaveService#applyLeave}, then redirects to leave-history.
+ * delegates to {@link LeaveService#applyLeave}, then:
+ * <ul>
+ *   <li>On success — redirects to the leave-history page.</li>
+ *   <li>On {@link InsufficientBalanceException} or {@link OverlappingLeaveException}
+ *       — sets {@code errorMessage} and forwards back to the form.</li>
+ * </ul>
  *
  * <p>Security note: the employeeId is sourced exclusively from the HTTP session
  * (set by {@link AuthenticationFilter}) — never from a request parameter.
- *
- * <p>First-pass implementation: no validation, overlap checks, or balance checks.
  */
 @WebServlet("/employee/apply-leave")
 public class ApplyLeaveServlet extends HttpServlet {
 
     /**
-     * Wired in {@link #init()} from a DAO registered on the {@code ServletContext}
+     * Wired in {@link #init()} from DAOs registered on the {@code ServletContext}
      * by the application's context listener.
      */
     private LeaveService leaveService;
@@ -42,7 +48,9 @@ public class ApplyLeaveServlet extends HttpServlet {
     public void init() throws ServletException {
         LeaveRequestDAO leaveRequestDAO =
                 (LeaveRequestDAO) getServletContext().getAttribute("leaveRequestDAO");
-        this.leaveService = new LeaveServiceImpl(leaveRequestDAO);
+        LeaveBalanceDAO leaveBalanceDAO =
+                (LeaveBalanceDAO) getServletContext().getAttribute("leaveBalanceDAO");
+        this.leaveService = new LeaveServiceImpl(leaveRequestDAO, leaveBalanceDAO);
     }
 
     // -----------------------------------------------------------------------
@@ -59,7 +67,7 @@ public class ApplyLeaveServlet extends HttpServlet {
     }
 
     // -----------------------------------------------------------------------
-    // POST — process the submitted form
+    // POST — validate and submit the leave request
     // -----------------------------------------------------------------------
 
     @Override
@@ -87,10 +95,17 @@ public class ApplyLeaveServlet extends HttpServlet {
         leaveRequest.setEndDate(LocalDate.parse(endDateParam));
         leaveRequest.setReason(reason);
 
-        // --- Delegate to service ---
-        leaveService.applyLeave(leaveRequest);
+        // --- Delegate to service (validation happens inside) ---
+        try {
+            leaveService.applyLeave(leaveRequest);
+            // Success — redirect to leave history (PRG pattern)
+            response.sendRedirect(request.getContextPath() + "/employee/leave-history");
 
-        // --- Redirect to leave-history on success ---
-        response.sendRedirect(request.getContextPath() + "/employee/leave-history");
+        } catch (InsufficientBalanceException | OverlappingLeaveException ex) {
+            // Validation failure — redisplay form with the error message
+            request.setAttribute("errorMessage", ex.getMessage());
+            request.getRequestDispatcher("/WEB-INF/views/employee/apply-leave.jsp")
+                   .forward(request, response);
+        }
     }
 }

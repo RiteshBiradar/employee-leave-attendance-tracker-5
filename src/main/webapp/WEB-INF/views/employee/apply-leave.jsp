@@ -39,6 +39,13 @@
     <div class="card" style="max-width:560px;">
         <p class="card-subtitle">Fill in the details below to submit a new leave request.</p>
 
+        <%-- Validation error from servlet --%>
+        <c:if test="${not empty errorMessage}">
+            <div class="alert alert-error" id="apply-leave-error">
+                &#9888; <c:out value="${errorMessage}"/>
+            </div>
+        </c:if>
+
         <form id="apply-leave-form"
               method="post"
               action="${pageContext.request.contextPath}/employee/apply-leave">

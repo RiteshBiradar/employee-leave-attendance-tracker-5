@@ -1,5 +1,6 @@
 package com.itc.employeeleaveattendance.controller.employee;
 
+import com.itc.employeeleaveattendance.dao.LeaveBalanceDAO;
 import com.itc.employeeleaveattendance.dao.LeaveRequestDAO;
 import com.itc.employeeleaveattendance.filter.AuthenticationFilter;
 import com.itc.employeeleaveattendance.model.Employee;
@@ -39,7 +40,9 @@ public class LeaveHistoryServlet extends HttpServlet {
     public void init() throws ServletException {
         LeaveRequestDAO leaveRequestDAO =
                 (LeaveRequestDAO) getServletContext().getAttribute("leaveRequestDAO");
-        this.leaveService = new LeaveServiceImpl(leaveRequestDAO);
+        LeaveBalanceDAO leaveBalanceDAO =
+                (LeaveBalanceDAO) getServletContext().getAttribute("leaveBalanceDAO");
+        this.leaveService = new LeaveServiceImpl(leaveRequestDAO, leaveBalanceDAO);
     }
 
     @Override

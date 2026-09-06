@@ -154,12 +154,14 @@ class SecurityTest {
     class LeaveServiceTests {
 
         private LeaveRequestDAO mockLeaveDAO;
+        private LeaveBalanceDAO mockBalanceDAO;
         private LeaveService    leaveService;
 
         @BeforeEach
         void setUp() {
-            mockLeaveDAO = mock(LeaveRequestDAO.class);
-            leaveService = new LeaveServiceImpl(mockLeaveDAO);
+            mockLeaveDAO  = mock(LeaveRequestDAO.class);
+            mockBalanceDAO = mock(LeaveBalanceDAO.class);
+            leaveService  = new LeaveServiceImpl(mockLeaveDAO, mockBalanceDAO);
         }
 
         @Test
