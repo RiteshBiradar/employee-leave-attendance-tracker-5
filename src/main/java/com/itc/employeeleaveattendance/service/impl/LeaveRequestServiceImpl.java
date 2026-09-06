@@ -14,6 +14,7 @@ import com.itc.employeeleaveattendance.model.Employee;
 import com.itc.employeeleaveattendance.model.LeaveBalance;
 import com.itc.employeeleaveattendance.model.LeaveRequest;
 import com.itc.employeeleaveattendance.service.LeaveRequestService;
+import com.itc.employeeleaveattendance.service.ConnectionProvider;
 import com.itc.employeeleaveattendance.util.DBUtil;
 
 import java.sql.Connection;
@@ -26,16 +27,25 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
     private final EmployeeDao employeeDao;
     private final LeaveBalanceDao leaveBalanceDao;
     private final LeaveRequestDao leaveRequestDao;
+    private final ConnectionProvider connectionProvider;
 
     public LeaveRequestServiceImpl() {
-        this(new EmployeeDaoImpl(), new LeaveBalanceDaoImpl(), new LeaveRequestDaoImpl());
+        this(new EmployeeDaoImpl(), new LeaveBalanceDaoImpl(), new LeaveRequestDaoImpl(),
+                DBUtil::getConnection);
     }
 
     public LeaveRequestServiceImpl(EmployeeDao employeeDao, LeaveBalanceDao leaveBalanceDao,
                                    LeaveRequestDao leaveRequestDao) {
+        this(employeeDao, leaveBalanceDao, leaveRequestDao, DBUtil::getConnection);
+    }
+
+    public LeaveRequestServiceImpl(EmployeeDao employeeDao, LeaveBalanceDao leaveBalanceDao,
+                                   LeaveRequestDao leaveRequestDao,
+                                   ConnectionProvider connectionProvider) {
         this.employeeDao = employeeDao;
         this.leaveBalanceDao = leaveBalanceDao;
         this.leaveRequestDao = leaveRequestDao;
+        this.connectionProvider = connectionProvider;
     }
 
     @Override
@@ -47,7 +57,7 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
     public void approveLeave(int requestId, int managerId) {
         Connection connection = null;
         try {
-            connection = DBUtil.getConnection();
+            connection = connectionProvider.getConnection();
             connection.setAutoCommit(false);
             LeaveRequest request = findAuthorizedPendingRequest(requestId, managerId, connection);
             int workingDays = countWorkingDays(request.getStartDate(), request.getEndDate());
@@ -74,7 +84,7 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
     public void rejectLeave(int requestId, int managerId) {
         Connection connection = null;
         try {
-            connection = DBUtil.getConnection();
+            connection = connectionProvider.getConnection();
             connection.setAutoCommit(false);
             findAuthorizedPendingRequest(requestId, managerId, connection);
             leaveRequestDao.updateStatus(requestId, "REJECTED", connection);
