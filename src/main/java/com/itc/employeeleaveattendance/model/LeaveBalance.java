@@ -1,35 +1,36 @@
 package com.itc.employeeleaveattendance.model;
 
-import com.itc.employeeleaveattendance.constant.LeaveType;
-
 public class LeaveBalance {
 
-    private long id;
+    private long balanceId;
     private long employeeId;
-    private LeaveType leaveType;
-    private int totalDays;
-    private int usedDays;
-    private int remainingDays;
+
+    private double casualBalance;
+    private double sickBalance;
+    private double earnedBalance;
 
     public LeaveBalance() {
     }
 
-    public LeaveBalance(long id, long employeeId, LeaveType leaveType,
-                        int totalDays, int usedDays, int remainingDays) {
-        this.id = id;
+    public LeaveBalance(long balanceId,
+                        long employeeId,
+                        double casualBalance,
+                        double sickBalance,
+                        double earnedBalance) {
+
+        this.balanceId = balanceId;
         this.employeeId = employeeId;
-        this.leaveType = leaveType;
-        this.totalDays = totalDays;
-        this.usedDays = usedDays;
-        this.remainingDays = remainingDays;
+        this.casualBalance = casualBalance;
+        this.sickBalance = sickBalance;
+        this.earnedBalance = earnedBalance;
     }
 
-    public long getId() {
-        return id;
+    public long getBalanceId() {
+        return balanceId;
     }
 
-    public void setId(long id) {
-        this.id = id;
+    public void setBalanceId(long balanceId) {
+        this.balanceId = balanceId;
     }
 
     public long getEmployeeId() {
@@ -40,35 +41,27 @@ public class LeaveBalance {
         this.employeeId = employeeId;
     }
 
-    public LeaveType getLeaveType() {
-        return leaveType;
+    public double getCasualBalance() {
+        return casualBalance;
     }
 
-    public void setLeaveType(LeaveType leaveType) {
-        this.leaveType = leaveType;
+    public void setCasualBalance(double casualBalance) {
+        this.casualBalance = casualBalance;
     }
 
-    public int getTotalDays() {
-        return totalDays;
+    public double getSickBalance() {
+        return sickBalance;
     }
 
-    public void setTotalDays(int totalDays) {
-        this.totalDays = totalDays;
+    public void setSickBalance(double sickBalance) {
+        this.sickBalance = sickBalance;
     }
 
-    public int getUsedDays() {
-        return usedDays;
+    public double getEarnedBalance() {
+        return earnedBalance;
     }
 
-    public void setUsedDays(int usedDays) {
-        this.usedDays = usedDays;
-    }
-
-    public int getRemainingDays() {
-        return remainingDays;
-    }
-
-    public void setRemainingDays(int remainingDays) {
-        this.remainingDays = remainingDays;
+    public void setEarnedBalance(double earnedBalance) {
+        this.earnedBalance = earnedBalance;
     }
 }
