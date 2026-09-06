@@ -40,9 +40,18 @@ public final class DBUtil {
                 );
             }
 
+            // Explicitly load the Oracle driver.
+            // This is required in Tomcat environments where the WebappClassLoader
+            // might not automatically register SPI drivers with the system DriverManager.
+            Class.forName("oracle.jdbc.OracleDriver");
+
         } catch (IOException e) {
             throw new RuntimeException(
                     "Failed to load database configuration", e
+            );
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(
+                    "Oracle JDBC driver not found in classpath", e
             );
         }
     }
