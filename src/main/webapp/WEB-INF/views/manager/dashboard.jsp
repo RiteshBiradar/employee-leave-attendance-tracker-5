@@ -1,106 +1,132 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ taglib prefix="c"   uri="jakarta.tags.core" %>
+<%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Manager dashboard — review team leaves.">
-    <title>Manager Dashboard — ${employee.name}</title>
+    <meta name="description" content="Manager dashboard - review team leave requests.">
+    <title>Manager Dashboard - ${employee.name}</title>
     <link rel="stylesheet" href="${pageContext.request.contextPath}/css/style.css">
 </head>
 <body class="page-wrapper">
 
-<%-- ===== Navigation Bar ===== --%>
 <nav class="navbar">
     <span class="navbar-brand">
         <span class="logo-dot"></span>
-        Leave Tracker <span style="font-size: 0.8rem; opacity: 0.8; margin-left: 5px;">(Manager)</span>
+        Leave Tracker <span class="role-label">(Manager)</span>
     </span>
     <ul class="navbar-nav">
         <li><a href="${pageContext.request.contextPath}/manager/dashboard" class="active">Dashboard</a></li>
-        <li><a href="#" style="opacity: 0.6; cursor: not-allowed;" title="Implemented by teammate">Team Leaves</a></li>
-        <li><a href="#" style="opacity: 0.6; cursor: not-allowed;" title="Implemented by teammate">Reports</a></li>
         <li>
-            <form method="post" action="${pageContext.request.contextPath}/logout" style="display:inline;">
+            <form method="post" action="${pageContext.request.contextPath}/logout" class="inline-form">
                 <button class="btn btn-outline btn-sm" type="submit" id="logout-btn">Logout</button>
             </form>
         </li>
     </ul>
 </nav>
 
-<%-- ===== Page Content ===== --%>
 <main class="page-content">
-
-    <%-- Welcome Header --%>
     <div class="dashboard-header">
-        <h2>Welcome back, <c:out value="${employee.name}"/> &#128075;</h2>
-        <p>Here&rsquo;s an overview of your team's leave requests.</p>
+        <h1>Welcome back, <c:out value="${employee.name}" /></h1>
+        <p>Review pending leave requests from your direct reports.</p>
     </div>
 
-    <%-- Profile Strip --%>
     <div class="profile-strip">
-        <div class="profile-avatar" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-            <c:out value="${employee.name.substring(0,1).toUpperCase()}"/>
-        </div>
         <div class="profile-info">
-            <h3><c:out value="${employee.name}"/></h3>
+            <h2><c:out value="${employee.name}" /></h2>
             <p>
-                <c:out value="${employee.email}"/> &nbsp;&bull;&nbsp;
-                <span class="badge badge-manager">
-                    <c:out value="${employee.role}"/>
-                </span>
+                <c:out value="${employee.email}" />
+                <span class="badge badge-manager"><c:out value="${employee.role}" /></span>
             </p>
         </div>
     </div>
 
-    <%-- Team Stats Placeholder --%>
+    <c:if test="${not empty sessionScope.successMessage}">
+        <div class="alert alert-success" role="status">
+            <c:out value="${sessionScope.successMessage}" />
+        </div>
+        <c:remove var="successMessage" scope="session" />
+    </c:if>
+
+    <c:if test="${not empty sessionScope.errorMessage}">
+        <div class="alert alert-danger" role="alert">
+            <c:out value="${sessionScope.errorMessage}" />
+        </div>
+        <c:remove var="errorMessage" scope="session" />
+    </c:if>
+
     <div class="section-heading">
-        <h2>&#128101; Team Overview</h2>
-    </div>
-    <div class="stats-grid" style="margin-bottom:32px;">
-        <div class="stat-card">
-            <div class="stat-label">Pending Approvals</div>
-            <div class="stat-value warning">
-                0
-            </div>
-            <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 5px;">(Module by teammate)</p>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">On Leave Today</div>
-            <div class="stat-value accent">
-                0
-            </div>
-             <p style="font-size: 0.8rem; color: var(--color-text-muted); margin-top: 5px;">(Module by teammate)</p>
-        </div>
-        <div class="stat-card">
-            <div class="stat-label">Total Team Members</div>
-            <div class="stat-value">
-                -
-            </div>
-        </div>
+        <h2>Pending Leave Requests</h2>
+        <span class="badge badge-pending">
+            <c:out value="${pendingRequests.size()}" />
+        </span>
     </div>
 
-    <%-- Quick Action Cards --%>
-    <div class="section-heading">
-        <h2>Quick Actions</h2>
+    <div class="card">
+        <c:choose>
+            <c:when test="${not empty pendingRequests}">
+                <div class="table-container">
+                    <table id="pending-requests-table">
+                        <thead>
+                        <tr>
+                            <th>Employee</th>
+                            <th>Leave Type</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Working Days</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <c:forEach var="leaveRequest" items="${pendingRequests}">
+                            <tr>
+                                <td><c:out value="${leaveRequest.employeeName}" /></td>
+                                <td><c:out value="${leaveRequest.leaveType}" /></td>
+                                <td><c:out value="${leaveRequest.startDate}" /></td>
+                                <td><c:out value="${leaveRequest.endDate}" /></td>
+                                <td><c:out value="${leaveRequest.workingDays}" /></td>
+                                <td><c:out value="${leaveRequest.reason}" /></td>
+                                <td>
+                                    <span class="badge badge-pending">
+                                        <c:out value="${leaveRequest.status}" />
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <form method="post"
+                                              action="${pageContext.request.contextPath}/manager/approve">
+                                            <input type="hidden" name="requestId"
+                                                   value="${leaveRequest.requestId}">
+                                            <button type="submit" class="btn btn-success btn-sm">
+                                                Approve
+                                            </button>
+                                        </form>
+                                        <form method="post"
+                                              action="${pageContext.request.contextPath}/manager/reject">
+                                            <input type="hidden" name="requestId"
+                                                   value="${leaveRequest.requestId}">
+                                            <button type="submit" class="btn btn-danger btn-sm">
+                                                Reject
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        </c:forEach>
+                        </tbody>
+                    </table>
+                </div>
+            </c:when>
+            <c:otherwise>
+                <div class="empty-state">
+                    <p>No pending leave requests from your direct reports.</p>
+                </div>
+            </c:otherwise>
+        </c:choose>
     </div>
-    <div class="action-grid">
-
-        <a class="action-card" href="#" style="opacity: 0.7;">
-            <div class="action-icon">&#9989;</div>
-            <div class="action-title">Review Requests</div>
-            <div class="action-desc">Approve or reject pending leave requests from your team. <br><em>(Teammate's Module)</em></div>
-        </a>
-
-        <a class="action-card" href="#" style="opacity: 0.7;">
-            <div class="action-icon">&#128202;</div>
-            <div class="action-title">Team Reports</div>
-            <div class="action-desc">Generate monthly leave and attendance reports. <br><em>(Teammate's Module)</em></div>
-        </a>
-
-    </div>
-
 </main>
 
 </body>

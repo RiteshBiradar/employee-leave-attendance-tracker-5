@@ -64,7 +64,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Mockito — for SecurityTest (mocks DAOs and Servlet objects without a live DB) -->
+        <!-- Mockito for tests that mock DAOs and servlet objects -->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
@@ -72,7 +72,7 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Embedded Tomcat 11 (compatible with Jakarta) -->
+        <!-- Embedded Tomcat 11 for local application execution -->
         <dependency>
             <groupId>org.apache.tomcat.embed</groupId>
             <artifactId>tomcat-embed-core</artifactId>
@@ -98,7 +98,7 @@
                 <version>3.14.1</version>
             </plugin>
 
-            <!-- Fix for Mockito on Java 25 -->
+            <!-- Run JUnit 5 and Mockito tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -118,7 +118,7 @@
                 </configuration>
             </plugin>
 
-            <!-- Exec plugin to run the embedded server -->
+            <!-- Run the embedded server -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>

@@ -21,6 +21,8 @@ public class CheckSequenceTest {
             } catch (SQLException e) {
                 System.out.println("Query Error: " + e.getMessage());
             }
+        } catch (SQLException e) {
+            System.out.println("Conn Error: " + e.getMessage());
         }
         System.out.println("========== CHECK END ==========");
     }
