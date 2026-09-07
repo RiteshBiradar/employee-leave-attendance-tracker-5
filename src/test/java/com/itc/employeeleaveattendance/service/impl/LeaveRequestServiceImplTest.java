@@ -2,9 +2,9 @@ package com.itc.employeeleaveattendance.service.impl;
 
 import com.itc.employeeleaveattendance.constant.LeaveStatus;
 import com.itc.employeeleaveattendance.constant.LeaveType;
-import com.itc.employeeleaveattendance.dao.ManagerEmployeeLookup;
-import com.itc.employeeleaveattendance.dao.ManagerLeaveBalanceDAO;
-import com.itc.employeeleaveattendance.dao.ManagerLeaveRequestDAO;
+import com.itc.employeeleaveattendance.dao.EmployeeDAO;
+import com.itc.employeeleaveattendance.dao.LeaveBalanceDAO;
+import com.itc.employeeleaveattendance.dao.LeaveRequestDAO;
 import com.itc.employeeleaveattendance.dto.PendingLeaveRequestDTO;
 import com.itc.employeeleaveattendance.exception.AuthorizationException;
 import com.itc.employeeleaveattendance.exception.InsufficientBalanceException;
@@ -18,7 +18,9 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -173,8 +175,13 @@ class LeaveRequestServiceImplTest {
 
     private LeaveRequestServiceImpl serviceFor(FakeRequestDao requestDao, FakeBalanceDao balanceDao,
                                                 Employee employee, FakeConnection connection) {
-        ManagerEmployeeLookup employeeLookup = employeeId -> employee;
-        return new LeaveRequestServiceImpl(employeeLookup, balanceDao, requestDao,
+        EmployeeDAO employeeDAO = new EmployeeDAO() {
+            @Override
+            public Optional<Employee> findById(int empId) {
+                return Optional.ofNullable(employee);
+            }
+        };
+        return new LeaveRequestServiceImpl(employeeDAO, balanceDao, requestDao,
                 () -> connection.connection());
     }
 
@@ -205,11 +212,21 @@ class LeaveRequestServiceImplTest {
         return balance;
     }
 
-    private static class FakeRequestDao implements ManagerLeaveRequestDAO {
+    private static class FakeRequestDao implements LeaveRequestDAO {
         private LeaveRequest request;
         private List<PendingLeaveRequestDTO> pendingRequests = List.of();
         private LeaveStatus updatedStatus;
         private boolean failStatusUpdate;
+
+        @Override
+        public long save(LeaveRequest request) {
+            return 0L;
+        }
+
+        @Override
+        public LeaveRequest findById(long id) {
+            return null;
+        }
 
         @Override
         public LeaveRequest findByIdForUpdate(long requestId, Connection connection) {
@@ -217,7 +234,22 @@ class LeaveRequestServiceImplTest {
         }
 
         @Override
-        public List<PendingLeaveRequestDTO> findPendingByManagerId(long managerId) {
+        public List<LeaveRequest> findByEmployeeId(long employeeId) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public List<LeaveRequest> findOverlapping(long employeeId, LocalDate startDate, LocalDate endDate) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public void updateStatus(long id, LeaveStatus status) {
+            updatedStatus = status;
+        }
+
+        @Override
+        public List<PendingLeaveRequestDTO> findPendingByManagerId(int managerId) {
             return pendingRequests;
         }
 
@@ -230,10 +262,19 @@ class LeaveRequestServiceImplTest {
         }
     }
 
-    private static class FakeBalanceDao implements ManagerLeaveBalanceDAO {
+    private static class FakeBalanceDao implements LeaveBalanceDAO {
         private LeaveBalance balance;
         private int deductedDays;
         private String deductedLeaveType;
+
+        @Override
+        public LeaveBalance findByEmployeeId(long employeeId) {
+            return balance;
+        }
+
+        @Override
+        public void updateBalance(LeaveBalance balance) {
+        }
 
         @Override
         public LeaveBalance findByEmployeeIdForUpdate(long employeeId, Connection connection) {
@@ -241,9 +282,9 @@ class LeaveRequestServiceImplTest {
         }
 
         @Override
-        public void deductBalance(long employeeId, String leaveType, int workingDays, Connection connection) {
+        public void deductBalance(long employeeId, LeaveType leaveType, int workingDays, Connection connection) {
             deductedDays += workingDays;
-            deductedLeaveType = leaveType;
+            deductedLeaveType = leaveType.name();
         }
     }
 

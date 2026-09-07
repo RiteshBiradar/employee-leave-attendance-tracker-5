@@ -21,9 +21,14 @@ public class RejectLeaveServlet extends HttpServlet {
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        HttpSession session = request.getSession();
+        HttpSession session = request.getSession(false);
+        Employee manager = session == null ? null
+                : (Employee) session.getAttribute(AuthenticationFilter.SESSION_ATTR_EMPLOYEE);
+        if (manager == null) {
+            response.sendRedirect(request.getContextPath() + "/login");
+            return;
+        }
         try {
-            Employee manager = (Employee) session.getAttribute(AuthenticationFilter.SESSION_ATTR_EMPLOYEE);
             long managerId = manager.getEmpId();
             long requestId = Long.parseLong(request.getParameter("requestId"));
             leaveRequestService.rejectLeave(requestId, managerId);

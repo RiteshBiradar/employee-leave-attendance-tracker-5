@@ -46,12 +46,14 @@
         <div class="alert alert-success" role="status">
             <c:out value="${sessionScope.successMessage}" />
         </div>
+        <c:remove var="successMessage" scope="session" />
     </c:if>
 
     <c:if test="${not empty sessionScope.errorMessage}">
         <div class="alert alert-danger" role="alert">
             <c:out value="${sessionScope.errorMessage}" />
         </div>
+        <c:remove var="errorMessage" scope="session" />
     </c:if>
 
     <div class="section-heading">
