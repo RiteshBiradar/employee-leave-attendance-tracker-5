@@ -10,20 +10,13 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-/**
- * JDBC implementation of {@link LeaveBalanceDAO} backed by Oracle via {@link DBUtil}.
- *
- * <p>Uses canonical Oracle schema:
- * LEAVE_BALANCE: BALANCE_ID, EMP_ID, CASUAL_BALANCE, SICK_BALANCE, EARNED_BALANCE.
- */
 public class LeaveBalanceDAOImpl implements LeaveBalanceDAO {
 
     @Override
     public LeaveBalance findByEmployeeId(long employeeId) {
         final String sql =
             "SELECT BALANCE_ID, EMP_ID, CASUAL_BALANCE, SICK_BALANCE, EARNED_BALANCE " +
-            "FROM   LEAVE_BALANCE " +
-            "WHERE  EMP_ID = ?";
+            "FROM LEAVE_BALANCE WHERE EMP_ID = ?";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -35,7 +28,7 @@ public class LeaveBalanceDAOImpl implements LeaveBalanceDAO {
                 }
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to find leave balance for empId=" + employeeId, e);
+            throw new RuntimeException("Failed to find leave balance for employeeId=" + employeeId, e);
         }
         return null;
     }
@@ -43,9 +36,8 @@ public class LeaveBalanceDAOImpl implements LeaveBalanceDAO {
     @Override
     public void updateBalance(LeaveBalance balance) {
         final String sql =
-            "UPDATE LEAVE_BALANCE " +
-            "SET    CASUAL_BALANCE = ?, SICK_BALANCE = ?, EARNED_BALANCE = ? " +
-            "WHERE  EMP_ID = ?";
+            "UPDATE LEAVE_BALANCE SET CASUAL_BALANCE = ?, SICK_BALANCE = ?, EARNED_BALANCE = ? " +
+            "WHERE EMP_ID = ?";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -53,10 +45,12 @@ public class LeaveBalanceDAOImpl implements LeaveBalanceDAO {
             ps.setDouble(1, balance.getCasualBalance());
             ps.setDouble(2, balance.getSickBalance());
             ps.setDouble(3, balance.getEarnedBalance());
-            ps.setLong  (4, balance.getEmployeeId());
+            ps.setLong(4, balance.getEmployeeId());
+
             ps.executeUpdate();
+
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to update leave balance for empId=" + balance.getEmployeeId(), e);
+            throw new RuntimeException("Failed to update leave balance for employeeId=" + balance.getEmployeeId(), e);
         }
     }
 
@@ -64,8 +58,7 @@ public class LeaveBalanceDAOImpl implements LeaveBalanceDAO {
     public LeaveBalance findByEmployeeIdForUpdate(long employeeId, Connection connection) {
         final String sql =
             "SELECT BALANCE_ID, EMP_ID, CASUAL_BALANCE, SICK_BALANCE, EARNED_BALANCE " +
-            "FROM   LEAVE_BALANCE " +
-            "WHERE  EMP_ID = ? FOR UPDATE";
+            "FROM LEAVE_BALANCE WHERE EMP_ID = ? FOR UPDATE";
 
         try (PreparedStatement ps = connection.prepareStatement(sql)) {
             ps.setLong(1, employeeId);
@@ -75,7 +68,7 @@ public class LeaveBalanceDAOImpl implements LeaveBalanceDAO {
                 }
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Failed to find leave balance for update for empId=" + employeeId, e);
+            throw new RuntimeException("Failed to find leave balance for update for employeeId=" + employeeId, e);
         }
         return null;
     }
@@ -101,7 +94,7 @@ public class LeaveBalanceDAOImpl implements LeaveBalanceDAO {
                 throw new InsufficientBalanceException("Insufficient leave balance.");
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Database error while deducting leave balance for empId=" + employeeId, e);
+            throw new RuntimeException("Database error while deducting leave balance for employeeId=" + employeeId, e);
         }
     }
 

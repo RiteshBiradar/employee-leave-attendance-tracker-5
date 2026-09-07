@@ -13,7 +13,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,47 +20,60 @@ import java.util.List;
  * JDBC implementation of {@link LeaveRequestDAO} backed by Oracle via {@link DBUtil}.
  *
  * <p>Uses canonical Oracle schema:
- * LEAVE_REQUEST: REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, STATUS, REASON, APPLIED_ON.
+ * LEAVE_REQUEST: REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, STATUS, REASON.
  */
 public class LeaveRequestDAOImpl implements LeaveRequestDAO {
 
+    // -----------------------------------------------------------------------
+    // Save
+    // -----------------------------------------------------------------------
+
     @Override
     public long save(LeaveRequest request) {
+        long nextId = 1001;
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement psId = conn.prepareStatement("SELECT NVL(MAX(REQUEST_ID), 1000) + 1 FROM LEAVE_REQUEST");
+             ResultSet rsId = psId.executeQuery()) {
+            if (rsId.next()) {
+                nextId = rsId.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to generate REQUEST_ID", e);
+        }
+
         final String sql =
             "INSERT INTO LEAVE_REQUEST " +
-            "  (EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
-            "   REASON, STATUS, APPLIED_ON) " +
+            "  (REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
+            "   REASON, STATUS) " +
             "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, new String[]{"REQUEST_ID"})) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setLong(1, request.getEmployeeId());
-            ps.setString(2, request.getLeaveType().name());
-            ps.setDate(3, Date.valueOf(request.getStartDate()));
-            ps.setDate(4, Date.valueOf(request.getEndDate()));
-            ps.setString(5, request.getReason());
-            ps.setString(6, request.getStatus().name());
-            ps.setObject(7, request.getAppliedOn());
+            ps.setLong  (1, nextId);
+            ps.setLong  (2, request.getEmployeeId());
+            ps.setString(3, request.getLeaveType().name());
+            ps.setDate  (4, Date.valueOf(request.getStartDate()));
+            ps.setDate  (5, Date.valueOf(request.getEndDate()));
+            ps.setString(6, request.getReason());
+            ps.setString(7, request.getStatus().name());
 
             ps.executeUpdate();
-
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                if (keys.next()) {
-                    return keys.getLong(1);
-                }
-            }
+            return nextId;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save leave request", e);
         }
-        throw new RuntimeException("Save succeeded but no generated key was returned");
     }
+
+    // -----------------------------------------------------------------------
+    // Find by primary key
+    // -----------------------------------------------------------------------
 
     @Override
     public LeaveRequest findById(long id) {
         final String sql =
             "SELECT REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
-            "       REASON, STATUS, APPLIED_ON " +
+            "       REASON, STATUS " +
             "FROM   LEAVE_REQUEST " +
             "WHERE  REQUEST_ID = ?";
 
@@ -80,11 +92,15 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
         return null;
     }
 
+    // -----------------------------------------------------------------------
+    // Find by primary key with row locking (for manager approval / rejection)
+    // -----------------------------------------------------------------------
+
     @Override
     public LeaveRequest findByIdForUpdate(long id, Connection connection) {
         final String sql =
             "SELECT REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
-            "       STATUS, REASON, APPLIED_ON " +
+            "       STATUS, REASON " +
             "FROM LEAVE_REQUEST " +
             "WHERE REQUEST_ID = ? " +
             "FOR UPDATE";
@@ -102,14 +118,18 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
         return null;
     }
 
+    // -----------------------------------------------------------------------
+    // Find all requests for one employee (leave history)
+    // -----------------------------------------------------------------------
+
     @Override
     public List<LeaveRequest> findByEmployeeId(long employeeId) {
         final String sql =
             "SELECT REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
-            "       REASON, STATUS, APPLIED_ON " +
+            "       REASON, STATUS " +
             "FROM   LEAVE_REQUEST " +
             "WHERE  EMP_ID = ? " +
-            "ORDER BY APPLIED_ON DESC";
+            "ORDER BY REQUEST_ID DESC";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -128,18 +148,22 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Overlap check — PENDING or APPROVED requests whose date range intersects
+    // -----------------------------------------------------------------------
+
     @Override
     public List<LeaveRequest> findOverlapping(long employeeId,
                                               LocalDate startDate,
                                               LocalDate endDate) {
         final String sql =
             "SELECT REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
-            "       REASON, STATUS, APPLIED_ON " +
+            "       REASON, STATUS " +
             "FROM   LEAVE_REQUEST " +
             "WHERE  EMP_ID = ? " +
-            "  AND  STATUS     IN ('PENDING', 'APPROVED') " +
-            "  AND  START_DATE <= ? " +
-            "  AND  END_DATE   >= ?";
+            "  AND  STATUS      IN ('PENDING', 'APPROVED') " +
+            "  AND  START_DATE  <= ? " +   // existing.START <= new.END
+            "  AND  END_DATE    >= ?";     // existing.END   >= new.START
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -161,6 +185,10 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // Update status
+    // -----------------------------------------------------------------------
+
     @Override
     public void updateStatus(long id, LeaveStatus status) {
         final String sql =
@@ -170,13 +198,18 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
              PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, status.name());
-            ps.setLong(2, id);
+            ps.setLong  (2, id);
             ps.executeUpdate();
+
         } catch (SQLException e) {
             throw new RuntimeException(
                     "Failed to update status for leave request id=" + id, e);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Transactional status update (for manager approval / rejection)
+    // -----------------------------------------------------------------------
 
     @Override
     public void updateStatus(long id, LeaveStatus status, Connection connection) {
@@ -194,6 +227,10 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
                     "Database error while updating leave status for requestId=" + id, e);
         }
     }
+
+    // -----------------------------------------------------------------------
+    // Pending requests for direct reports (manager workflow)
+    // -----------------------------------------------------------------------
 
     @Override
     public List<PendingLeaveRequestDTO> findPendingByManagerId(int managerId) {
@@ -240,25 +277,23 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
         return requests;
     }
 
+    // -----------------------------------------------------------------------
+    // Row mapping
+    // -----------------------------------------------------------------------
+
     private LeaveRequest mapRow(ResultSet rs) throws SQLException {
         LeaveRequest lr = new LeaveRequest();
-        lr.setId(rs.getLong("REQUEST_ID"));
-        lr.setEmployeeId(rs.getLong("EMP_ID"));
-        lr.setLeaveType(LeaveType.valueOf(rs.getString("LEAVE_TYPE")));
+        lr.setId          (rs.getLong  ("REQUEST_ID"));
+        lr.setEmployeeId  (rs.getLong  ("EMP_ID"));
+        lr.setLeaveType   (LeaveType.valueOf(rs.getString("LEAVE_TYPE")));
         LocalDate startDate = rs.getDate("START_DATE").toLocalDate();
-        LocalDate endDate = rs.getDate("END_DATE").toLocalDate();
-        lr.setStartDate(startDate);
-        lr.setEndDate(endDate);
+        LocalDate endDate   = rs.getDate("END_DATE").toLocalDate();
+        lr.setStartDate   (startDate);
+        lr.setEndDate     (endDate);
         lr.setNumberOfDays(DateUtil.calculateWorkingDays(startDate, endDate));
-        lr.setReason(rs.getString("REASON"));
-        lr.setStatus(LeaveStatus.valueOf(rs.getString("STATUS")));
+        lr.setReason      (rs.getString("REASON"));
+        lr.setStatus      (LeaveStatus.valueOf(rs.getString("STATUS")));
 
-        Object ts = rs.getObject("APPLIED_ON");
-        if (ts instanceof java.sql.Timestamp sqlTs) {
-            lr.setAppliedOn(sqlTs.toLocalDateTime());
-        } else if (ts instanceof LocalDateTime ldt) {
-            lr.setAppliedOn(ldt);
-        }
         return lr;
     }
 }
