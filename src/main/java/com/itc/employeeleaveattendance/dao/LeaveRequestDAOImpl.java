@@ -30,35 +30,39 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
 
     @Override
     public long save(LeaveRequest request) {
+        long nextId = 1001;
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement psId = conn.prepareStatement("SELECT NVL(MAX(REQUEST_ID), 1000) + 1 FROM LEAVE_REQUEST");
+             ResultSet rsId = psId.executeQuery()) {
+            if (rsId.next()) {
+                nextId = rsId.getLong(1);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to generate REQUEST_ID", e);
+        }
+
         final String sql =
             "INSERT INTO LEAVE_REQUEST " +
-            "  (EMPLOYEE_ID, LEAVE_TYPE, START_DATE, END_DATE, NUMBER_OF_DAYS, " +
-            "   REASON, STATUS, APPLIED_ON) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            "  (REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
+            "   REASON, STATUS) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql, new String[]{"LEAVE_REQUEST_ID"})) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
 
-            ps.setLong  (1, request.getEmployeeId());
-            ps.setString(2, request.getLeaveType().name());
-            ps.setDate  (3, Date.valueOf(request.getStartDate()));
-            ps.setDate  (4, Date.valueOf(request.getEndDate()));
-            ps.setInt   (5, request.getNumberOfDays());
+            ps.setLong  (1, nextId);
+            ps.setLong  (2, request.getEmployeeId());
+            ps.setString(3, request.getLeaveType().name());
+            ps.setDate  (4, Date.valueOf(request.getStartDate()));
+            ps.setDate  (5, Date.valueOf(request.getEndDate()));
             ps.setString(6, request.getReason());
             ps.setString(7, request.getStatus().name());
-            ps.setObject(8, request.getAppliedOn()); // Oracle TIMESTAMP via JDBC 4.2
 
             ps.executeUpdate();
-
-            try (ResultSet keys = ps.getGeneratedKeys()) {
-                if (keys.next()) {
-                    return keys.getLong(1);
-                }
-            }
+            return nextId;
         } catch (SQLException e) {
             throw new RuntimeException("Failed to save leave request", e);
         }
-        throw new RuntimeException("Save succeeded but no generated key was returned");
     }
 
     // -----------------------------------------------------------------------
@@ -68,10 +72,10 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
     @Override
     public LeaveRequest findById(long id) {
         final String sql =
-            "SELECT LEAVE_REQUEST_ID, EMPLOYEE_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
-            "       NUMBER_OF_DAYS, REASON, STATUS, APPLIED_ON " +
+            "SELECT REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
+            "       REASON, STATUS " +
             "FROM   LEAVE_REQUEST " +
-            "WHERE  LEAVE_REQUEST_ID = ?";
+            "WHERE  REQUEST_ID = ?";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -95,11 +99,11 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
     @Override
     public List<LeaveRequest> findByEmployeeId(long employeeId) {
         final String sql =
-            "SELECT LEAVE_REQUEST_ID, EMPLOYEE_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
-            "       NUMBER_OF_DAYS, REASON, STATUS, APPLIED_ON " +
+            "SELECT REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
+            "       REASON, STATUS " +
             "FROM   LEAVE_REQUEST " +
-            "WHERE  EMPLOYEE_ID = ? " +
-            "ORDER BY APPLIED_ON DESC";
+            "WHERE  EMP_ID = ? " +
+            "ORDER BY REQUEST_ID DESC";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -133,10 +137,10 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
                                               LocalDate startDate,
                                               LocalDate endDate) {
         final String sql =
-            "SELECT LEAVE_REQUEST_ID, EMPLOYEE_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
-            "       NUMBER_OF_DAYS, REASON, STATUS, APPLIED_ON " +
+            "SELECT REQUEST_ID, EMP_ID, LEAVE_TYPE, START_DATE, END_DATE, " +
+            "       REASON, STATUS " +
             "FROM   LEAVE_REQUEST " +
-            "WHERE  EMPLOYEE_ID = ? " +
+            "WHERE  EMP_ID = ? " +
             "  AND  STATUS      IN ('PENDING', 'APPROVED') " +
             "  AND  START_DATE  <= ? " +   // existing.START <= new.END
             "  AND  END_DATE    >= ?";     // existing.END   >= new.START
@@ -168,7 +172,7 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
     @Override
     public void updateStatus(long id, LeaveStatus status) {
         final String sql =
-            "UPDATE LEAVE_REQUEST SET STATUS = ? WHERE LEAVE_REQUEST_ID = ?";
+            "UPDATE LEAVE_REQUEST SET STATUS = ? WHERE REQUEST_ID = ?";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -189,22 +193,14 @@ public class LeaveRequestDAOImpl implements LeaveRequestDAO {
 
     private LeaveRequest mapRow(ResultSet rs) throws SQLException {
         LeaveRequest lr = new LeaveRequest();
-        lr.setId          (rs.getLong  ("LEAVE_REQUEST_ID"));
-        lr.setEmployeeId  (rs.getLong  ("EMPLOYEE_ID"));
+        lr.setId          (rs.getLong  ("REQUEST_ID"));
+        lr.setEmployeeId  (rs.getLong  ("EMP_ID"));
         lr.setLeaveType   (LeaveType.valueOf(rs.getString("LEAVE_TYPE")));
         lr.setStartDate   (rs.getDate  ("START_DATE").toLocalDate());
         lr.setEndDate     (rs.getDate  ("END_DATE").toLocalDate());
-        lr.setNumberOfDays(rs.getInt   ("NUMBER_OF_DAYS"));
         lr.setReason      (rs.getString("REASON"));
         lr.setStatus      (LeaveStatus.valueOf(rs.getString("STATUS")));
 
-        // APPLIED_ON is a TIMESTAMP — read as LocalDateTime via getObject
-        Object ts = rs.getObject("APPLIED_ON");
-        if (ts instanceof java.sql.Timestamp sqlTs) {
-            lr.setAppliedOn(sqlTs.toLocalDateTime());
-        } else if (ts instanceof LocalDateTime ldt) {
-            lr.setAppliedOn(ldt);
-        }
         return lr;
     }
 }
