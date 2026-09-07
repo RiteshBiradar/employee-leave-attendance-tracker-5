@@ -2,7 +2,7 @@ package com.itc.employeeleaveattendance.dao;
 
 import com.itc.employeeleaveattendance.model.Employee;
 
-public interface EmployeeDao {
+public interface ManagerEmployeeLookup {
 
-    Employee findById(int empId);
+    Employee findById(long employeeId);
 }

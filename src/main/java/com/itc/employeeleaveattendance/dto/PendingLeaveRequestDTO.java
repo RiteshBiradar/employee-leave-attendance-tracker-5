@@ -1,35 +1,38 @@
 package com.itc.employeeleaveattendance.dto;
 
+import com.itc.employeeleaveattendance.constant.LeaveStatus;
+import com.itc.employeeleaveattendance.constant.LeaveType;
+
 import java.time.LocalDate;
 
 public class PendingLeaveRequestDTO {
 
-    private int requestId;
-    private int empId;
+    private long requestId;
+    private long empId;
     private String employeeName;
-    private String leaveType;
+    private LeaveType leaveType;
     private LocalDate startDate;
     private LocalDate endDate;
     private int workingDays;
     private String reason;
-    private String status;
+    private LeaveStatus status;
 
     public PendingLeaveRequestDTO() {
     }
 
-    public int getRequestId() {
+    public long getRequestId() {
         return requestId;
     }
 
-    public void setRequestId(int requestId) {
+    public void setRequestId(long requestId) {
         this.requestId = requestId;
     }
 
-    public int getEmpId() {
+    public long getEmpId() {
         return empId;
     }
 
-    public void setEmpId(int empId) {
+    public void setEmpId(long empId) {
         this.empId = empId;
     }
 
@@ -41,11 +44,11 @@ public class PendingLeaveRequestDTO {
         this.employeeName = employeeName;
     }
 
-    public String getLeaveType() {
+    public LeaveType getLeaveType() {
         return leaveType;
     }
 
-    public void setLeaveType(String leaveType) {
+    public void setLeaveType(LeaveType leaveType) {
         this.leaveType = leaveType;
     }
 
@@ -81,11 +84,11 @@ public class PendingLeaveRequestDTO {
         this.reason = reason;
     }
 
-    public String getStatus() {
+    public LeaveStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(LeaveStatus status) {
         this.status = status;
     }
 }

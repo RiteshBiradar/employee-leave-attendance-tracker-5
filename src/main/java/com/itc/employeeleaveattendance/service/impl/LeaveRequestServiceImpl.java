@@ -1,15 +1,18 @@
 package com.itc.employeeleaveattendance.service.impl;
 
-import com.itc.employeeleaveattendance.dao.EmployeeDao;
-import com.itc.employeeleaveattendance.dao.LeaveBalanceDao;
-import com.itc.employeeleaveattendance.dao.LeaveRequestDao;
-import com.itc.employeeleaveattendance.dao.impl.EmployeeDaoImpl;
-import com.itc.employeeleaveattendance.dao.impl.LeaveBalanceDaoImpl;
-import com.itc.employeeleaveattendance.dao.impl.LeaveRequestDaoImpl;
+import com.itc.employeeleaveattendance.constant.LeaveStatus;
+import com.itc.employeeleaveattendance.constant.LeaveType;
+import com.itc.employeeleaveattendance.dao.ManagerEmployeeLookup;
+import com.itc.employeeleaveattendance.dao.ManagerEmployeeLookupImpl;
+import com.itc.employeeleaveattendance.dao.ManagerLeaveBalanceDAO;
+import com.itc.employeeleaveattendance.dao.ManagerLeaveBalanceDAOImpl;
+import com.itc.employeeleaveattendance.dao.ManagerLeaveRequestDAO;
+import com.itc.employeeleaveattendance.dao.ManagerLeaveRequestDAOImpl;
 import com.itc.employeeleaveattendance.dto.PendingLeaveRequestDTO;
 import com.itc.employeeleaveattendance.exception.AuthorizationException;
 import com.itc.employeeleaveattendance.exception.InvalidLeaveRequestException;
 import com.itc.employeeleaveattendance.exception.LeaveBalanceException;
+import com.itc.employeeleaveattendance.exception.InsufficientBalanceException;
 import com.itc.employeeleaveattendance.model.Employee;
 import com.itc.employeeleaveattendance.model.LeaveBalance;
 import com.itc.employeeleaveattendance.model.LeaveRequest;
@@ -24,50 +27,52 @@ import java.util.List;
 
 public class LeaveRequestServiceImpl implements LeaveRequestService {
 
-    private final EmployeeDao employeeDao;
-    private final LeaveBalanceDao leaveBalanceDao;
-    private final LeaveRequestDao leaveRequestDao;
+    private final ManagerEmployeeLookup employeeLookup;
+    private final ManagerLeaveBalanceDAO leaveBalanceDao;
+    private final ManagerLeaveRequestDAO leaveRequestDao;
     private final ConnectionProvider connectionProvider;
 
     public LeaveRequestServiceImpl() {
-        this(new EmployeeDaoImpl(), new LeaveBalanceDaoImpl(), new LeaveRequestDaoImpl(),
+        this(new ManagerEmployeeLookupImpl(), new ManagerLeaveBalanceDAOImpl(), new ManagerLeaveRequestDAOImpl(),
                 DBUtil::getConnection);
     }
 
-    public LeaveRequestServiceImpl(EmployeeDao employeeDao, LeaveBalanceDao leaveBalanceDao,
-                                   LeaveRequestDao leaveRequestDao) {
-        this(employeeDao, leaveBalanceDao, leaveRequestDao, DBUtil::getConnection);
+    public LeaveRequestServiceImpl(ManagerEmployeeLookup employeeLookup,
+                                   ManagerLeaveBalanceDAO leaveBalanceDao,
+                                   ManagerLeaveRequestDAO leaveRequestDao) {
+        this(employeeLookup, leaveBalanceDao, leaveRequestDao, DBUtil::getConnection);
     }
 
-    public LeaveRequestServiceImpl(EmployeeDao employeeDao, LeaveBalanceDao leaveBalanceDao,
-                                   LeaveRequestDao leaveRequestDao,
+    public LeaveRequestServiceImpl(ManagerEmployeeLookup employeeLookup,
+                                   ManagerLeaveBalanceDAO leaveBalanceDao,
+                                   ManagerLeaveRequestDAO leaveRequestDao,
                                    ConnectionProvider connectionProvider) {
-        this.employeeDao = employeeDao;
+        this.employeeLookup = employeeLookup;
         this.leaveBalanceDao = leaveBalanceDao;
         this.leaveRequestDao = leaveRequestDao;
         this.connectionProvider = connectionProvider;
     }
 
     @Override
-    public List<PendingLeaveRequestDTO> getPendingRequestsForManager(int managerId) {
+    public List<PendingLeaveRequestDTO> getPendingRequestsForManager(long managerId) {
         return leaveRequestDao.findPendingByManagerId(managerId);
     }
 
     @Override
-    public void approveLeave(int requestId, int managerId) {
+    public void approveLeave(long requestId, long managerId) {
         Connection connection = null;
         try {
             connection = connectionProvider.getConnection();
             connection.setAutoCommit(false);
             LeaveRequest request = findAuthorizedPendingRequest(requestId, managerId, connection);
             int workingDays = countWorkingDays(request.getStartDate(), request.getEndDate());
-            LeaveBalance balance = leaveBalanceDao.findByEmpId(request.getEmpId(), connection);
+            LeaveBalance balance = leaveBalanceDao.findByEmployeeIdForUpdate(request.getEmployeeId(), connection);
             if (balance == null) {
                 throw new LeaveBalanceException("Leave balance was not found.");
             }
             validateBalance(balance, request.getLeaveType(), workingDays);
-            leaveBalanceDao.deductBalance(request.getEmpId(), request.getLeaveType(), workingDays, connection);
-            leaveRequestDao.updateStatus(requestId, "APPROVED", connection);
+            leaveBalanceDao.deductBalance(request.getEmployeeId(), request.getLeaveType().name(), workingDays, connection);
+            leaveRequestDao.updateStatus(requestId, LeaveStatus.APPROVED, connection);
             connection.commit();
         } catch (SQLException exception) {
             rollback(connection);
@@ -81,13 +86,13 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
     }
 
     @Override
-    public void rejectLeave(int requestId, int managerId) {
+    public void rejectLeave(long requestId, long managerId) {
         Connection connection = null;
         try {
             connection = connectionProvider.getConnection();
             connection.setAutoCommit(false);
             findAuthorizedPendingRequest(requestId, managerId, connection);
-            leaveRequestDao.updateStatus(requestId, "REJECTED", connection);
+            leaveRequestDao.updateStatus(requestId, LeaveStatus.REJECTED, connection);
             connection.commit();
         } catch (SQLException exception) {
             rollback(connection);
@@ -102,14 +107,14 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
 
     private LeaveRequest findAuthorizedPendingRequest(int requestId, int managerId,
                                                        Connection connection) {
-        LeaveRequest request = leaveRequestDao.findById(requestId, connection);
+        LeaveRequest request = leaveRequestDao.findByIdForUpdate(requestId, connection);
         if (request == null) {
             throw new InvalidLeaveRequestException("Leave request was not found.");
         }
-        if (!"PENDING".equals(request.getStatus())) {
+        if (request.getStatus() != LeaveStatus.PENDING) {
             throw new InvalidLeaveRequestException("Leave request is already " + request.getStatus() + ".");
         }
-        Employee employee = employeeDao.findById(request.getEmpId());
+        Employee employee = employeeLookup.findById(request.getEmployeeId());
         if (employee == null || employee.getManagerId() == null
                 || employee.getManagerId() != managerId) {
             throw new AuthorizationException("You are not the manager of this employee.");
@@ -117,15 +122,14 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
         return request;
     }
 
-    private void validateBalance(LeaveBalance balance, String leaveType, int workingDays) {
-        int available = switch (leaveType.toUpperCase()) {
-            case "CASUAL" -> balance.getCasualBalance();
-            case "SICK" -> balance.getSickBalance();
-            case "EARNED" -> balance.getEarnedBalance();
-            default -> throw new LeaveBalanceException("Unsupported leave type: " + leaveType);
+    private void validateBalance(LeaveBalance balance, LeaveType leaveType, int workingDays) {
+        double available = switch (leaveType) {
+            case CASUAL -> balance.getCasualBalance();
+            case SICK -> balance.getSickBalance();
+            case EARNED -> balance.getEarnedBalance();
         };
         if (available < workingDays) {
-            throw new LeaveBalanceException("Insufficient leave balance.");
+            throw new InsufficientBalanceException("Insufficient leave balance.");
         }
     }
 

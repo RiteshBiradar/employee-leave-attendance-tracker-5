@@ -2,6 +2,8 @@ package com.itc.employeeleaveattendance.controller;
 
 import com.itc.employeeleaveattendance.service.LeaveRequestService;
 import com.itc.employeeleaveattendance.service.impl.LeaveRequestServiceImpl;
+import com.itc.employeeleaveattendance.filter.AuthenticationFilter;
+import com.itc.employeeleaveattendance.model.Employee;
 
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -21,8 +23,9 @@ public class ApproveLeaveServlet extends HttpServlet {
             throws IOException {
         HttpSession session = request.getSession();
         try {
-            int managerId = ((Number) session.getAttribute("empId")).intValue();
-            int requestId = Integer.parseInt(request.getParameter("requestId"));
+            Employee manager = (Employee) session.getAttribute(AuthenticationFilter.SESSION_ATTR_EMPLOYEE);
+            long managerId = manager.getEmpId();
+            long requestId = Long.parseLong(request.getParameter("requestId"));
             leaveRequestService.approveLeave(requestId, managerId);
             session.setAttribute("successMessage", "Leave request approved.");
         } catch (RuntimeException exception) {
