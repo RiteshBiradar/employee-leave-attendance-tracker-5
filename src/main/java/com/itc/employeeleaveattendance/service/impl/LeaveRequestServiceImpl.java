@@ -105,7 +105,7 @@ public class LeaveRequestServiceImpl implements LeaveRequestService {
         }
     }
 
-    private LeaveRequest findAuthorizedPendingRequest(int requestId, int managerId,
+    private LeaveRequest findAuthorizedPendingRequest(long requestId, long managerId,
                                                        Connection connection) {
         LeaveRequest request = leaveRequestDao.findByIdForUpdate(requestId, connection);
         if (request == null) {
