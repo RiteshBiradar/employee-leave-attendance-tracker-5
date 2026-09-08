@@ -19,8 +19,11 @@
     </span>
     <ul class="navbar-nav">
         <li><a href="${pageContext.request.contextPath}/employee/dashboard" class="active">Dashboard</a></li>
-        <li><a href="${pageContext.request.contextPath}/employee/leave-history">Leave History</a></li>
+        <c:if test="${sessionScope.loggedInEmployee.role == 'MANAGER'}">
+            <li><a href="${pageContext.request.contextPath}/manager/dashboard">Manager Dashboard</a></li>
+        </c:if>
         <li><a href="${pageContext.request.contextPath}/employee/apply-leave">Apply Leave</a></li>
+        <li><a href="${pageContext.request.contextPath}/employee/leave-history">Leave History</a></li>
         <li>
             <form method="post" action="${pageContext.request.contextPath}/logout" style="display:inline;">
                 <button class="btn btn-outline btn-sm" type="submit" id="logout-btn">Logout</button>

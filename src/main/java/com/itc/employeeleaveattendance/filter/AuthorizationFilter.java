@@ -56,7 +56,8 @@ public class AuthorizationFilter implements Filter {
         boolean accessGranted = false;
 
         if (servletPath.startsWith("/employee/")) {
-            accessGranted = ROLE_EMPLOYEE.equalsIgnoreCase(employee.getRole());
+            accessGranted = ROLE_EMPLOYEE.equalsIgnoreCase(employee.getRole()) ||
+                            ROLE_MANAGER.equalsIgnoreCase(employee.getRole());
         } else if (servletPath.startsWith("/manager/")) {
             accessGranted = ROLE_MANAGER.equalsIgnoreCase(employee.getRole());
         }

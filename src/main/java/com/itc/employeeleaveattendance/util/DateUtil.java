@@ -1,5 +1,6 @@
 package com.itc.employeeleaveattendance.util;
 
+import com.itc.employeeleaveattendance.config.HolidayConfig;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 
@@ -16,11 +17,11 @@ public final class DateUtil {
      * Counts working days (Mon–Fri) between {@code startDate} and {@code endDate},
      * inclusive of both endpoints.
      *
-     * <p>Saturdays and Sundays are excluded. No public-holiday logic is applied.
+     * <p>Saturdays, Sundays, and mandatory holidays are excluded.
      *
      * @param startDate the first day of the leave period (inclusive)
      * @param endDate   the last  day of the leave period (inclusive)
-     * @return number of working days; 0 if both dates fall on weekends
+     * @return number of working days; 0 if both dates fall on weekends/holidays
      * @throws IllegalArgumentException if either date is null, or if endDate is
      *                                  strictly before startDate
      */
@@ -37,7 +38,7 @@ public final class DateUtil {
         LocalDate current = startDate;
         while (!current.isAfter(endDate)) {
             DayOfWeek day = current.getDayOfWeek();
-            if (day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY) {
+            if (day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY && !HolidayConfig.isHoliday(current)) {
                 workingDays++;
             }
             current = current.plusDays(1);

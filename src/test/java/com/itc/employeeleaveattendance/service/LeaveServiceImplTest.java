@@ -29,7 +29,7 @@ import static org.mockito.Mockito.*;
  *
  * <p>Uses Mockito mocks for both DAOs — no database connection required.
  *
- * <p>Test window: Monday 2025-01-06 → Friday 2025-01-10 = 5 working days.
+ * <p>Test window: Monday 2027-01-06 → Friday 2027-01-10 = 5 working days.
  */
 @DisplayName("LeaveServiceImpl — applyLeave validation")
 class LeaveServiceImplTest {
@@ -40,10 +40,10 @@ class LeaveServiceImplTest {
 
     private static final long EMP_ID = 10L;
 
-    // Fixed weekday range: Mon 2025-01-06 → Fri 2025-01-10 = 5 working days
-    private static final LocalDate START = LocalDate.of(2025, 1, 6);
-    private static final LocalDate END   = LocalDate.of(2025, 1, 10);
-    private static final int       DAYS  = 5;
+    // Fixed weekday range: Tue 2027-02-02 → Thu 2027-02-04 = 3 working days
+    private static final LocalDate START = LocalDate.of(2027, 2, 2);
+    private static final LocalDate END   = LocalDate.of(2027, 2, 4);
+    private static final int       DAYS  = 3;
 
     private LeaveRequestDAO mockLeaveRequestDAO;
     private LeaveBalanceDAO mockLeaveBalanceDAO;
@@ -101,7 +101,7 @@ class LeaveServiceImplTest {
         // Arrange — an existing PENDING request overlaps the requested window
         LeaveRequest existing = new LeaveRequest(
                 99L, EMP_ID, LeaveType.CASUAL,
-                LocalDate.of(2025, 1, 8), LocalDate.of(2025, 1, 8),
+                LocalDate.of(2027, 2, 2), LocalDate.of(2027, 2, 2),
                 1, "Existing request", LeaveStatus.PENDING, LocalDateTime.now());
 
         when(mockLeaveRequestDAO.findOverlapping(eq(EMP_ID), eq(START), eq(END)))
