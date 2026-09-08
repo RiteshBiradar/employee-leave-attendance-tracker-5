@@ -17,7 +17,12 @@
         Leave Tracker <span class="role-label">(Manager)</span>
     </span>
     <ul class="navbar-nav">
-        <li><a href="${pageContext.request.contextPath}/manager/dashboard" class="active">Dashboard</a></li>
+        <li><a href="${pageContext.request.contextPath}/employee/dashboard">Dashboard</a></li>
+        <c:if test="${sessionScope.loggedInEmployee.role == 'MANAGER'}">
+            <li><a href="${pageContext.request.contextPath}/manager/dashboard" class="active">Manager Dashboard</a></li>
+        </c:if>
+        <li><a href="${pageContext.request.contextPath}/employee/apply-leave">Apply Leave</a></li>
+        <li><a href="${pageContext.request.contextPath}/employee/leave-history">Leave History</a></li>
         <li>
             <form method="post" action="${pageContext.request.contextPath}/logout" class="inline-form">
                 <button class="btn btn-outline btn-sm" type="submit" id="logout-btn">Logout</button>
@@ -41,6 +46,39 @@
             </p>
         </div>
     </div>
+
+    <div class="section-heading">
+        <h2>&#127381; My Leave Balances</h2>
+    </div>
+    <c:choose>
+        <c:when test="${not empty leaveBalance}">
+            <div class="stats-grid" style="margin-bottom:32px;">
+                <div class="stat-card">
+                    <div class="stat-label">Casual Leave</div>
+                    <div class="stat-value accent">
+                        <c:out value="${leaveBalance.casualBalance}"/>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Sick Leave</div>
+                    <div class="stat-value warning">
+                        <c:out value="${leaveBalance.sickBalance}"/>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Earned Leave</div>
+                    <div class="stat-value">
+                        <c:out value="${leaveBalance.earnedBalance}"/>
+                    </div>
+                </div>
+            </div>
+        </c:when>
+        <c:otherwise>
+            <p style="color:var(--color-text-muted);font-size:0.85rem;margin-bottom:28px;">
+                Leave balance not yet assigned. Please contact HR.
+            </p>
+        </c:otherwise>
+    </c:choose>
 
     <c:if test="${not empty sessionScope.successMessage}">
         <div class="alert alert-success" role="status">
@@ -83,7 +121,10 @@
                         <tbody>
                         <c:forEach var="leaveRequest" items="${pendingRequests}">
                             <tr>
-                                <td><c:out value="${leaveRequest.employeeName}" /></td>
+                                <td>
+                                    <c:out value="${leaveRequest.employeeName}" /><br>
+                                    <small>Employee ID: <c:out value="${leaveRequest.empId}" /></small>
+                                </td>
                                 <td><c:out value="${leaveRequest.leaveType}" /></td>
                                 <td><c:out value="${leaveRequest.startDate}" /></td>
                                 <td><c:out value="${leaveRequest.endDate}" /></td>

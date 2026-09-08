@@ -1,5 +1,7 @@
 package com.itc.employeeleaveattendance.controller;
 
+import com.itc.employeeleaveattendance.dao.LeaveBalanceDAO;
+import com.itc.employeeleaveattendance.model.LeaveBalance;
 import com.itc.employeeleaveattendance.service.LeaveRequestService;
 import com.itc.employeeleaveattendance.service.impl.LeaveRequestServiceImpl;
 import com.itc.employeeleaveattendance.filter.AuthenticationFilter;
@@ -18,6 +20,12 @@ import java.io.IOException;
 public class ManagerDashboardServlet extends HttpServlet {
 
     private final LeaveRequestService leaveRequestService = new LeaveRequestServiceImpl();
+    private LeaveBalanceDAO leaveBalanceDAO;
+
+    @Override
+    public void init() throws ServletException {
+        this.leaveBalanceDAO = (LeaveBalanceDAO) getServletContext().getAttribute("leaveBalanceDAO");
+    }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -29,9 +37,13 @@ public class ManagerDashboardServlet extends HttpServlet {
             response.sendRedirect(request.getContextPath() + "/login");
             return;
         }
+        
+        LeaveBalance leaveBalance = leaveBalanceDAO.findByEmployeeId(employee.getEmpId());
+        request.setAttribute("leaveBalance", leaveBalance);
+        
         request.setAttribute("pendingRequests",
                 leaveRequestService.getPendingRequestsForManager(employee.getEmpId()));
-            request.setAttribute("employee", employee);
+        request.setAttribute("employee", employee);
         request.getRequestDispatcher("/WEB-INF/views/manager/dashboard.jsp")
                 .forward(request, response);
     }

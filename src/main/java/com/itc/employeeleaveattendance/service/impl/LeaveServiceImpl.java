@@ -1,5 +1,6 @@
 package com.itc.employeeleaveattendance.service.impl;
 
+import com.itc.employeeleaveattendance.config.HolidayConfig;
 import com.itc.employeeleaveattendance.constant.LeaveStatus;
 import com.itc.employeeleaveattendance.constant.LeaveType;
 import com.itc.employeeleaveattendance.dao.LeaveBalanceDAO;
@@ -11,6 +12,8 @@ import com.itc.employeeleaveattendance.model.LeaveRequest;
 import com.itc.employeeleaveattendance.service.LeaveService;
 import com.itc.employeeleaveattendance.util.DateUtil;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -44,9 +47,45 @@ public class LeaveServiceImpl implements LeaveService {
     @Override
     public long applyLeave(LeaveRequest request) {
 
+        LocalDate today = LocalDate.now();
+        if (request.getStartDate().isBefore(today)) {
+            throw new IllegalArgumentException("Leave start date cannot be in the past.");
+        }
+        if (request.getEndDate().isBefore(request.getStartDate())) {
+            throw new IllegalArgumentException("End date cannot be before start date.");
+        }
+        
+        DayOfWeek startDay = request.getStartDate().getDayOfWeek();
+        DayOfWeek endDay = request.getEndDate().getDayOfWeek();
+        
+        if (startDay == DayOfWeek.SATURDAY || startDay == DayOfWeek.SUNDAY || 
+            endDay == DayOfWeek.SATURDAY || endDay == DayOfWeek.SUNDAY) {
+            throw new IllegalArgumentException("Leave cannot be applied for weekends.");
+        }
+
+        if (HolidayConfig.isHoliday(request.getStartDate()) || 
+            HolidayConfig.isHoliday(request.getEndDate())) {
+            throw new IllegalArgumentException("Selected date is a mandatory holiday.");
+        }
+        
+        if (request.getLeaveType() == LeaveType.CASUAL) {
+            LocalDate current = request.getStartDate();
+            while (!current.isAfter(request.getEndDate())) {
+                if (current.getDayOfWeek() == DayOfWeek.FRIDAY || current.getDayOfWeek() == DayOfWeek.MONDAY) {
+                    throw new IllegalArgumentException("Casual Leave cannot be applied on restricted weekday dates (Monday, Friday).");
+                }
+                current = current.plusDays(1);
+            }
+        }
+
         // 1. Calculate working days and stamp the request
         int workingDays = DateUtil.calculateWorkingDays(
                 request.getStartDate(), request.getEndDate());
+                
+        if (workingDays <= 0) {
+            throw new IllegalArgumentException("Leave cannot be applied for weekends.");
+        }
+
         request.setNumberOfDays(workingDays);
 
         // 2. Overlap check — reject if an existing PENDING/APPROVED request clashes

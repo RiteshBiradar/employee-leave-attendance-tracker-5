@@ -368,20 +368,16 @@ class SecurityTest {
         }
 
         @Test
-        @DisplayName("TC-16 · MANAGER accessing /employee/* → 403 Forbidden")
-        void manager_accessesEmployeePath_forbidden() throws IOException, ServletException {
+        @DisplayName("TC-16 · MANAGER accessing /employee/* → allowed")
+        void manager_accessesEmployeePath_allowed() throws IOException, ServletException {
             when(mockSession.getAttribute(AuthenticationFilter.SESSION_ATTR_EMPLOYEE))
                     .thenReturn(manager);
             when(mockReq.getServletPath()).thenReturn("/employee/dashboard");
 
-            RequestDispatcher mockDispatcher = mock(RequestDispatcher.class);
-            when(mockReq.getRequestDispatcher("/WEB-INF/views/error/403.jsp"))
-                    .thenReturn(mockDispatcher);
-
             filter.doFilter(mockReq, mockResp, mockChain);
 
-            verify(mockResp).setStatus(HttpServletResponse.SC_FORBIDDEN);
-            verify(mockChain, never()).doFilter(any(), any());
+            verify(mockChain).doFilter(mockReq, mockResp);
+            verify(mockResp, never()).setStatus(HttpServletResponse.SC_FORBIDDEN);
         }
     }
 

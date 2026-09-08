@@ -62,6 +62,7 @@ public class ApplyLeaveServlet extends HttpServlet {
                          HttpServletResponse response)
             throws ServletException, IOException {
 
+        setHolidaysAttribute(request);
         request.getRequestDispatcher("/WEB-INF/views/employee/apply-leave.jsp")
                .forward(request, response);
     }
@@ -101,11 +102,19 @@ public class ApplyLeaveServlet extends HttpServlet {
             // Success — redirect to leave history (PRG pattern)
             response.sendRedirect(request.getContextPath() + "/employee/leave-history");
 
-        } catch (InsufficientBalanceException | OverlappingLeaveException ex) {
+        } catch (InsufficientBalanceException | OverlappingLeaveException | IllegalArgumentException ex) {
             // Validation failure — redisplay form with the error message
             request.setAttribute("errorMessage", ex.getMessage());
+            setHolidaysAttribute(request);
             request.getRequestDispatcher("/WEB-INF/views/employee/apply-leave.jsp")
                    .forward(request, response);
         }
+    }
+    
+    private void setHolidaysAttribute(HttpServletRequest request) {
+        java.util.List<String> holidays = com.itc.employeeleaveattendance.config.HolidayConfig.MANDATORY_HOLIDAYS.stream()
+            .map(LocalDate::toString)
+            .collect(java.util.stream.Collectors.toList());
+        request.setAttribute("holidays", holidays);
     }
 }

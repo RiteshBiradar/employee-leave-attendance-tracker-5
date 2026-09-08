@@ -6,7 +6,7 @@ import java.sql.*;
 public class CheckColumnTest {
     @Test
     public void checkCol() throws Exception {
-        String url = "jdbc:oracle:thin:@192.168.1.45:1521/FREEPDB1";
+        String url = "jdbc:oracle:thin:@localhost:1521/FREEPDB1";
         String user = "SYSTEM";
         String pass = "Ritesh@12345";
         

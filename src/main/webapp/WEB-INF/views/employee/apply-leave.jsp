@@ -19,8 +19,11 @@
     </span>
     <ul class="navbar-nav">
         <li><a href="${pageContext.request.contextPath}/employee/dashboard">Dashboard</a></li>
-        <li><a href="${pageContext.request.contextPath}/employee/leave-history">Leave History</a></li>
+        <c:if test="${sessionScope.loggedInEmployee.role == 'MANAGER'}">
+            <li><a href="${pageContext.request.contextPath}/manager/dashboard">Manager Dashboard</a></li>
+        </c:if>
         <li><a href="${pageContext.request.contextPath}/employee/apply-leave" class="active">Apply Leave</a></li>
+        <li><a href="${pageContext.request.contextPath}/employee/leave-history">Leave History</a></li>
         <li>
             <form method="post" action="${pageContext.request.contextPath}/logout" style="display:inline;">
                 <button class="btn btn-outline btn-sm" type="submit" id="logout-btn">Logout</button>
@@ -109,6 +112,62 @@
     </div>
 
 </main>
+
+<script>
+    const holidays = [
+        <c:forEach var="holiday" items="${holidays}" varStatus="status">
+            "${holiday}"<c:if test="${!status.last}">,</c:if>
+        </c:forEach>
+    ];
+
+    document.addEventListener("DOMContentLoaded", function() {
+        const startDateInput = document.getElementById("startDate");
+        const endDateInput = document.getElementById("endDate");
+        const leaveTypeInput = document.getElementById("leaveType");
+        
+        // Set min date to today
+        const today = new Date();
+        // Adjust for local timezone
+        today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+        const todayStr = today.toISOString().split('T')[0];
+        
+        startDateInput.setAttribute('min', todayStr);
+        endDateInput.setAttribute('min', todayStr);
+
+        function validateDate(input) {
+            if (!input.value) return;
+            // Use local date parsing by appending T00:00:00 to avoid UTC shifting
+            const date = new Date(input.value + "T00:00:00");
+            const day = date.getDay(); // 0 = Sunday, 6 = Saturday
+            const dateString = input.value;
+            
+            if (day === 0 || day === 6) {
+                alert("Weekends cannot be selected.");
+                input.value = "";
+                return;
+            }
+            
+            if (holidays.includes(dateString)) {
+                alert("Selected date is a mandatory holiday.");
+                input.value = "";
+                return;
+            }
+            
+            if (leaveTypeInput.value === 'CASUAL' && (day === 1 || day === 5)) {
+                alert("Casual Leave cannot be applied on restricted weekday dates (Monday, Friday).");
+                input.value = "";
+                return;
+            }
+        }
+        
+        startDateInput.addEventListener('change', function() { validateDate(this); });
+        endDateInput.addEventListener('change', function() { validateDate(this); });
+        leaveTypeInput.addEventListener('change', function() {
+            validateDate(startDateInput);
+            validateDate(endDateInput);
+        });
+    });
+</script>
 
 </body>
 </html>
