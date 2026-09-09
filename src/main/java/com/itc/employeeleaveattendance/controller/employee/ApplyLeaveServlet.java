@@ -86,6 +86,16 @@ public class ApplyLeaveServlet extends HttpServlet {
         HttpSession session  = request.getSession(false);
         Employee    employee = (Employee) session.getAttribute(
                 AuthenticationFilter.SESSION_ATTR_EMPLOYEE);
+                
+        // Validation: Employee must have a manager assigned to apply for leave
+        if (employee.getManagerId() == null || employee.getManagerId() == 0) {
+            request.setAttribute("errorMessage", "You cannot apply for leave because you do not have an assigned manager. Please contact HR.");
+            setHolidaysAttribute(request);
+            request.getRequestDispatcher("/WEB-INF/views/employee/apply-leave.jsp")
+                   .forward(request, response);
+            return;
+        }
+
         long employeeId = employee.getEmpId();
 
         // --- Build leave request ---
