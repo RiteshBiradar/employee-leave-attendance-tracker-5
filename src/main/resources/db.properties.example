@@ -1,0 +1,3 @@
+db.url=jdbc:oracle:thin:@HOSTNAME/FREEPDB1
+db.username=username
+db.password=password
